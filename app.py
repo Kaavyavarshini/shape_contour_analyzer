@@ -23,7 +23,7 @@ uploaded_file = st.file_uploader(
 # Function to detect shape based on number of vertices
 def detect_shape(contour):
     perimeter = cv2.arcLength(contour, True)
-    approx = cv2.approxPolyDP(contour, 0.04 * perimeter, True)
+    approx = cv2.approxPolyDP(contour, 0.03 * perimeter, True)
     vertices = len(approx)
 
     if vertices == 3:
@@ -34,6 +34,7 @@ def detect_shape(contour):
         return "Pentagon"
     else:
         return "Circle"
+
 
 # If image is uploaded
 if uploaded_file is not None:
