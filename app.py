@@ -7,23 +7,22 @@ from PIL import Image
 # Page configuration
 st.set_page_config(page_title="Shape & Contour Analyzer", layout="wide")
 
-# App title
+# Title
 st.title("🔷 Shape & Contour Analyzer")
-
 st.write(
     "Upload an image containing geometric shapes. "
-    "The app will detect shapes, count objects, and display area and perimeter."
+    "The app detects shapes, counts objects, and calculates area and perimeter."
 )
 
 # File uploader
 uploaded_file = st.file_uploader(
-    "Upload an image (jpg / png)", type=["jpg", "png", "jpeg"]
+    "Upload an image (jpg / png / jpeg)", type=["jpg", "png", "jpeg"]
 )
 
-# Function to detect shape based on number of vertices
+# Shape detection function (IMPROVED – triangle safe)
 def detect_shape(contour):
-    perimeter = cv2.arcLength(contour, True)
-    approx = cv2.approxPolyDP(contour, 0.03 * perimeter, True)
+    peri = cv2.arcLength(contour, True)
+    approx = cv2.approxPolyDP(contour, 0.02 * peri, True)
     vertices = len(approx)
 
     if vertices == 3:
@@ -35,21 +34,25 @@ def detect_shape(contour):
     else:
         return "Circle"
 
-
-# If image is uploaded
 if uploaded_file is not None:
     # Read image
     image = Image.open(uploaded_file)
     img = np.array(image)
 
-    # Preprocessing
+    # Convert to grayscale
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+    # Blur to remove noise
     blur = cv2.GaussianBlur(gray, (5, 5), 0)
-    edges = cv2.Canny(blur, 50, 150)
+
+    # Binary thresholding (better than Canny for triangles)
+    _, thresh = cv2.threshold(
+        blur, 200, 255, cv2.THRESH_BINARY_INV
+    )
 
     # Find contours
     contours, _ = cv2.findContours(
-        edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+        thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
     )
 
     results = []
@@ -58,7 +61,7 @@ if uploaded_file is not None:
     for contour in contours:
         area = cv2.contourArea(contour)
 
-        # Ignore small noisy contours
+        # Ignore small noise
         if area > 500:
             object_count += 1
             perimeter = cv2.arcLength(contour, True)
@@ -67,7 +70,7 @@ if uploaded_file is not None:
             # Draw contour
             cv2.drawContours(img, [contour], -1, (255, 0, 0), 2)
 
-            # Find center to place text
+            # Find center for label
             M = cv2.moments(contour)
             if M["m00"] != 0:
                 cx = int(M["m10"] / M["m00"])
@@ -86,13 +89,13 @@ if uploaded_file is not None:
                 [object_count, shape, round(area, 2), round(perimeter, 2)]
             )
 
-    # Convert results to DataFrame
+    # Create DataFrame
     df = pd.DataFrame(
         results,
         columns=["Object ID", "Shape", "Area (pixels)", "Perimeter (pixels)"],
     )
 
-    # Layout
+    # Display layout
     col1, col2 = st.columns(2)
 
     with col1:
